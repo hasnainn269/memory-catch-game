@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Memory Match Challenge</title>
+  <meta name="description" content="A cute pastel memory match mini-game with 3D card flips, delightful sound effects, multiple difficulties, and best score tracking." />
+  <meta property="og:title" content="Memory Match Challenge" />
+  <meta property="og:description" content="Play a cute pastel memory puzzle game. Flip cards, find matching pairs, and beat your high scores!" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <style>
+    /* -------------------------------------------------------------
+       PASTEL GAMING THEME & RESET
+       ------------------------------------------------------------- */
+    :root {
+      --bg-base: #f7f4fd;
+      --bg-mesh: radial-gradient(at 10% 20%, #fde2e4 0px, transparent 50%),
+                 radial-gradient(at 90% 15%, #e2ece9 0px, transparent 50%),
+                 radial-gradient(at 30% 85%, #dbeafe 0px, transparent 55%),
+                 radial-gradient(at 80% 85%, #fce7f3 0px, transparent 55%),
+                 #f5f3ff;
+      --primary: #a855f7;
+      --primary-hover: #9333ea;
+      --primary-light: #f3e8ff;
+      --accent-pink: #f472b6;
+      --accent-pink-light: #fdf2f8;
+      --accent-blue: #38bdf8;
+      --accent-blue-light: #f0f9ff;
+      --accent-green: #34d399;
+      --accent-green-light: #ecfdf5;
+      --accent-amber: #fbbf24;
+      --accent-amber-light: #fefce8;
+      --card-back-from: #c084fc;
+      --card-back-to: #f472b6;
+      --card-front-bg: #ffffff;
+      --surface: rgba(255, 255, 255, 0.88);
+      --surface-border: rgba(233, 213, 255, 0.75);
+      --text-main: #332747;
+      --text-muted: #7c6f92;
+      --shadow-sm: 0 4px 12px rgba(168, 85, 247, 0.08);
+      --shadow-md: 0 8px 24px rgba(168, 85, 247, 0.14);
+      --shadow-lg: 0 16px 36px rgba(147, 51, 234, 0.18);
+      --shadow-card: 0 8px 18px rgba(168, 85, 247, 0.16);
+      --radius-sm: 12px;
+      --radius-md: 20px;
+      --radius-lg: 28px;
+      --radius-card: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-mesh);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Ambient background floating bubbles */
+    .ambient-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .ambient-circle {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(55px);
+      opacity: 0.55;
+      animation: floatSlow 18s ease-in-out infinite alternate;
+    }
+    .ambient-1 {
+      width: 320px;
+      height: 320px;
+      background: #fbcfe8;
+      top: -80px;
+      left: -60px;
+    }
+    .ambient-2 {
+      width: 360px;
+      height: 360px;
+      background: #bae6fd;
+      bottom: -100px;
+      right: -80px;
+      animation-duration: 22s;
+    }
+    .ambient-3 {
+      width: 280px;
+      height: 280px;
+      background: #e9d5ff;
+      top: 40%;
+      left: 65%;
+      animation-duration: 16s;
+    }
+
+    @keyframes floatSlow {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(30px, 40px) scale(1.12); }
+    }
+
+    /* Interactive Canvas for Sparkles and Confetti */
+    #particle-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    /* Main Container Shell */
+    #app-root {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 820px;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    /* Screen Transitions */
+    .screen {
+      display: none;
+      width: 100%;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* -------------------------------------------------------------
+       BUTTONS & CHIPS
+       ------------------------------------------------------------- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 1rem;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      padding: 12px 24px;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: var(--shadow-sm);
+      outline: none;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn:active {
+      transform: translateY(1px) scale(0.98);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #c084fc 0%, #a855f7 50%, #9333ea 100%);
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #c084fc 0%, #9333ea 100%);
+    }
+
+    .btn-secondary {
+      background: #ffffff;
+      color: var(--text-main);
+      border: 1px solid var(--surface-border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--primary-light);
+      color: var(--primary);
+      border-color: #d8b4fe;
+    }
+
+    .btn-icon {
+      padding: 10px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #ffffff;
+      color: var(--text-main);
+      border: 1px solid var(--surface-border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-icon:hover {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    /* -------------------------------------------------------------
+       SCREEN 1: START SCREEN
+       ------------------------------------------------------------- */
+    .start-card {
+      background: var(--surface);
+      border: 2px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      padding: 36px 28px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: var(--shadow-lg);
+      text-align: center;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .logo-container {
+      margin-bottom: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .logo-badge {
+      width: 76px;
+      height: 76px;
+      background: linear-gradient(135deg, #fbcfe8 0%, #c084fc 50%, #818cf8 100%);
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      box-shadow: 0 10px 22px rgba(192, 132, 252, 0.35);
+      border: 2px solid rgba(255, 255, 255, 0.7);
+      animation: bounceSubtle 3s ease-in-out infinite;
+    }
+
+    @keyframes bounceSubtle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .game-title {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #4a2872;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .game-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      line-height: 1.45;
+    }
+
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #9333ea;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    /* Difficulty Picker */
+    .diff-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      background: #f5f3ff;
+      padding: 6px;
+      border-radius: var(--radius-md);
+      margin-bottom: 24px;
+      border: 1px solid #e9d5ff;
+    }
+
+    .diff-btn {
+      padding: 10px 4px;
+      border-radius: 14px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .diff-btn .diff-sub {
+      font-size: 0.7rem;
+      font-weight: 600;
+      opacity: 0.8;
+    }
+
+    .diff-btn.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: 0 4px 10px rgba(168, 85, 247, 0.15);
+      border: 1px solid #f3e8ff;
+    }
+
+    /* Best score on Start Screen */
+    .best-score-banner {
+      background: #fdf4ff;
+      border: 1px dashed #f0abfc;
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #701a75;
+    }
+
+    .best-score-banner span.val {
+      font-weight: 800;
+      color: #9333ea;
+    }
+
+    .start-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .start-btn {
+      width: 100%;
+      font-size: 1.15rem;
+      padding: 14px 24px;
+      border-radius: var(--radius-md);
+    }
+
+    .utility-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 14px;
+    }
+
+    .sound-toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      transition: color 0.15s ease;
+    }
+
+    .sound-toggle-btn:hover {
+      color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    /* -------------------------------------------------------------
+       SCREEN 2: PLAYING HUD & GAME BOARD
+       ------------------------------------------------------------- */
+    .game-view {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* Top HUD */
+    .hud-header {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .hud-stat-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .hud-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      background: #ffffff;
+      border: 1px solid #f3e8ff;
+      color: var(--text-main);
+      box-shadow: 0 2px 6px rgba(168, 85, 247, 0.05);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud-pill.timer-pill {
+      background: var(--accent-blue-light);
+      color: #0369a1;
+      border-color: #bae6fd;
+    }
+
+    .hud-pill.moves-pill {
+      background: var(--accent-pink-light);
+      color: #be185d;
+      border-color: #fbcfe8;
+    }
+
+    .hud-pill.match-pill {
+      background: var(--accent-green-light);
+      color: #047857;
+      border-color: #a7f3d0;
+    }
+
+    .hud-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Board Grid */
+    .board-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 4px;
+    }
+
+    .game-board {
+      display: grid;
+      gap: 12px;
+      width: 100%;
+      max-width: 680px;
+      perspective: 1200px;
+    }
+
+    /* Grid layouts according to difficulty */
+    .game-board.diff-easy {
+      grid-template-columns: repeat(4, 1fr);
+      max-width: 480px;
+    }
+
+    .game-board.diff-normal {
+      grid-template-columns: repeat(4, 1fr);
+      max-width: 580px;
+    }
+
+    .game-board.diff-hard {
+      grid-template-columns: repeat(6, 1fr);
+      max-width: 720px;
+    }
+
+    @media (max-width: 600px) {
+      .game-board.diff-hard {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .hud-header {
+        padding: 8px 12px;
+        justify-content: center;
+      }
+      .hud-stat-group {
+        justify-content: center;
+        gap: 6px;
+      }
+      .hud-pill {
+        padding: 4px 10px;
+        font-size: 0.8rem;
+      }
+      .hud-controls {
+        width: 100%;
+        justify-content: center;
+      }
+      .game-board {
+        gap: 8px;
+      }
+    }
+
+    /* -------------------------------------------------------------
+       CARD 3D COMPONENT
+       ------------------------------------------------------------- */
+    .card-item {
+      aspect-ratio: 1 / 1;
+      background: transparent;
+      perspective: 1000px;
+      cursor: pointer;
+      outline: none;
+      position: relative;
+    }
+
+    .card-item:focus-visible .card-inner {
+      box-shadow: 0 0 0 3px #c084fc, var(--shadow-card);
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transform-style: preserve-3d;
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+    }
+
+    .card-item:hover:not(.flipped):not(.matched) .card-inner {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 12px 24px rgba(168, 85, 247, 0.22);
+    }
+
+    .card-item.flipped .card-inner,
+    .card-item.matched .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-item.matched {
+      cursor: default;
+    }
+
+    .card-item.matched .card-inner {
+      box-shadow: 0 4px 14px rgba(52, 211, 153, 0.3);
+      animation: pulseMatched 0.5s ease-out;
+    }
+
+    @keyframes pulseMatched {
+      0% { transform: rotateY(180deg) scale(1); }
+      40% { transform: rotateY(180deg) scale(1.1); }
+      100% { transform: rotateY(180deg) scale(1); }
+    }
+
+    .card-item.mismatch .card-inner {
+      animation: wobbleCard 0.4s ease-in-out;
+    }
+
+    @keyframes wobbleCard {
+      0%, 100% { transform: rotateY(180deg) translateX(0); }
+      25% { transform: rotateY(180deg) translateX(-6px); }
+      75% { transform: rotateY(180deg) translateX(6px); }
+    }
+
+    .card-face {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: var(--radius-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Card Back (Hidden Picture) */
+    .card-face-back {
+      background: linear-gradient(135deg, var(--card-back-from) 0%, #e879f9 50%, var(--card-back-to) 100%);
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      color: #ffffff;
+    }
+
+    /* Cute subtle pattern on back */
+    .card-face-back::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.35) 2px, transparent 2.5px);
+      background-size: 16px 16px;
+      opacity: 0.6;
+    }
+
+    .card-back-icon {
+      font-size: 1.8rem;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+      position: relative;
+      z-index: 2;
+      transition: transform 0.25s ease;
+    }
+
+    .card-item:hover:not(.flipped):not(.matched) .card-back-icon {
+      transform: scale(1.15) rotate(8deg);
+    }
+
+    /* Card Front (Revealed Emoji) */
+    .card-face-front {
+      background: var(--card-front-bg);
+      border: 2.5px solid #f3e8ff;
+      transform: rotateY(180deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card-item.matched .card-face-front {
+      background: #f0fdf4;
+      border-color: #86efac;
+    }
+
+    .card-emoji {
+      font-size: 2.4rem;
+      line-height: 1;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.12));
+      transform: translateZ(20px);
+    }
+
+    @media (max-width: 500px) {
+      .card-emoji {
+        font-size: 1.9rem;
+      }
+      .card-back-icon {
+        font-size: 1.3rem;
+      }
+    }
+
+    /* -------------------------------------------------------------
+       MODALS: PAUSE & VICTORY OVERLAYS
+       ------------------------------------------------------------- */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(51, 39, 71, 0.45);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      animation: fadeInModal 0.25s ease-out forwards;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    @keyframes fadeInModal {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-box {
+      background: #ffffff;
+      border: 2px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      padding: 32px 26px;
+      width: 100%;
+      max-width: 440px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(74, 40, 114, 0.22);
+      animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      position: relative;
+    }
+
+    @keyframes scaleUp {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-emoji-badge {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 42px;
+      background: linear-gradient(135deg, #fbcfe8 0%, #ddd6fe 100%);
+      box-shadow: 0 8px 20px rgba(168, 85, 247, 0.2);
+    }
+
+    .modal-title {
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: #3b0764;
+      margin-bottom: 8px;
+    }
+
+    .modal-desc {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: 22px;
+    }
+
+    /* Stats Grid inside modals */
+    .stats-tiles {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .stat-tile {
+      background: #faf5ff;
+      border: 1px solid #f3e8ff;
+      border-radius: var(--radius-sm);
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-tile .label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #9333ea;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-tile .value {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Star rating on victory */
+    .stars-row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      font-size: 32px;
+      margin-bottom: 18px;
+    }
+
+    .star-anim {
+      display: inline-block;
+      animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .star-anim:nth-child(1) { animation-delay: 0.1s; }
+    .star-anim:nth-child(2) { animation-delay: 0.25s; }
+    .star-anim:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes popIn {
+      0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+      80% { transform: scale(1.25) rotate(10deg); }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .new-record-pill {
+      display: inline-block;
+      background: linear-gradient(135deg, #f59e0b 0%, #ec4899 100%);
+      color: #ffffff;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      padding: 4px 14px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+      animation: pulseBadge 1.8s infinite;
+    }
+
+    @keyframes pulseBadge {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+    }
+
+    .modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .modal-btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    /* Non-interactive controls hint */
+    .hint-bar {
+      margin-top: 14px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      opacity: 0.85;
+      text-align: center;
+    }
+  </style>
+</head>
+<body data-state="title">
+  <!-- Soft Ambient Floating Bubbles -->
+  <div class="ambient-bg" aria-hidden="true">
+    <div class="ambient-circle ambient-1"></div>
+    <div class="ambient-circle ambient-2"></div>
+    <div class="ambient-circle ambient-3"></div>
+  </div>
+
+  <!-- Particle / Confetti Canvas -->
+  <canvas id="particle-canvas" aria-hidden="true"></canvas>
+
+  <main id="app-root">
+    <!-- =========================================================
+         SCREEN 1: START SCREEN
+         ========================================================= -->
+    <section id="screen-start" class="screen active" aria-labelledby="start-title">
+      <div class="start-card">
+        <div class="logo-container">
+          <div class="logo-badge" aria-hidden="true">✨</div>
+        </div>
+
+        <h1 id="start-title" class="game-title">
+          <span>Memory Match</span>
+        </h1>
+        <p class="game-subtitle">
+          Flip cards, discover adorable matching pairs, and sharpen your memory skills!
+        </p>
+
+        <span class="section-label">Select Difficulty</span>
+        <div class="diff-group" role="radiogroup" aria-label="Game Difficulty">
+          <button type="button" class="diff-btn" data-diff="easy" role="radio" aria-checked="false">
+            <span>Easy</span>
+            <span class="diff-sub">8 Cards · 4 Pairs</span>
+          </button>
+          <button type="button" class="diff-btn active" data-diff="normal" role="radio" aria-checked="true">
+            <span>Normal</span>
+            <span class="diff-sub">16 Cards · 8 Pairs</span>
+          </button>
+          <button type="button" class="diff-btn" data-diff="hard" role="radio" aria-checked="false">
+            <span>Hard</span>
+            <span class="diff-sub">24 Cards · 12 Pairs</span>
+          </button>
+        </div>
+
+        <div class="best-score-banner" id="start-best-banner">
+          <span>🏆 Best (<span id="start-best-label">Normal</span>):</span>
+          <span class="val" id="start-best-val">-- moves · --:--</span>
+        </div>
+
+        <div class="start-actions">
+          <button type="button" id="btn-start" class="btn btn-primary start-btn" data-start="true">
+            <span>🎮 Start Game</span>
+          </button>
+        </div>
+
+        <div class="utility-bar">
+          <button type="button" id="btn-sound-toggle-start" class="sound-toggle-btn" aria-label="Toggle Sound Effects">
+            <span id="sound-icon-start">🔊</span>
+            <span id="sound-text-start">Sound: ON</span>
+          </button>
+        </div>
+
+        <div class="hint-bar">
+          Keyboard: Enter to Start · Tab / Arrows to pick · P to Pause
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         SCREEN 2: PLAYING SCREEN
+         ========================================================= -->
+    <section id="screen-playing" class="screen" aria-label="Memory Match Game Board">
+      <div class="game-view">
+        <!-- Top HUD -->
+        <header class="hud-header">
+          <div class="hud-stat-group">
+            <div class="hud-pill timer-pill" title="Elapsed Time">
+              <span aria-hidden="true">⏱️</span>
+              <span id="hud-timer" aria-live="polite">00:00</span>
+            </div>
+            <div class="hud-pill moves-pill" title="Total Moves">
+              <span aria-hidden="true">🎯</span>
+              <span id="hud-moves" aria-live="polite">0 Moves</span>
+            </div>
+            <div class="hud-pill match-pill" title="Matching Pairs">
+              <span aria-hidden="true">⭐</span>
+              <span id="hud-matches" aria-live="polite">0 / 8 Pairs</span>
+            </div>
+          </div>
+
+          <div class="hud-controls">
+            <button type="button" id="btn-sound-toggle-hud" class="btn btn-icon" aria-label="Toggle Sound" title="Sound (M)">
+              <span id="sound-icon-hud">🔊</span>
+            </button>
+            <button type="button" id="btn-pause" class="btn btn-icon" aria-label="Pause Game" title="Pause (P / Esc)">
+              <span aria-hidden="true">⏸️</span>
+            </button>
+            <button type="button" id="btn-restart-hud" class="btn btn-icon" aria-label="Restart Game" title="Restart (R)">
+              <span aria-hidden="true">🔄</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- Board Grid Area -->
+        <div class="board-container">
+          <div id="game-board" class="game-board diff-normal" role="grid" aria-label="Memory Card Grid">
+            <!-- Dynamic Cards generated by JavaScript -->
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- =========================================================
+       SCREEN 3: PAUSE MODAL
+       ========================================================= -->
+  <div id="modal-pause" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+    <div class="modal-box">
+      <div class="modal-emoji-badge" aria-hidden="true">☕</div>
+      <h2 id="pause-title" class="modal-title">Game Paused</h2>
+      <p class="modal-desc">Take a breather! Your cards and timer are on hold.</p>
+
+      <div class="stats-tiles">
+        <div class="stat-tile">
+          <span class="label">Time</span>
+          <span class="value" id="pause-stat-time">00:00</span>
+        </div>
+        <div class="stat-tile">
+          <span class="label">Moves</span>
+          <span class="value" id="pause-stat-moves">0</span>
+        </div>
+        <div class="stat-tile">
+          <span class="label">Pairs Found</span>
+          <span class="value" id="pause-stat-pairs">0/8</span>
+        </div>
+        <div class="stat-tile">
+          <span class="label">Difficulty</span>
+          <span class="value" id="pause-stat-diff">Normal</span>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="btn-resume" class="btn btn-primary">
+          <span>▶️ Resume Game</span>
+        </button>
+        <div class="modal-btn-row">
+          <button type="button" id="btn-restart-pause" class="btn btn-secondary">
+            <span>🔄 Restart</span>
+          </button>
+          <button type="button" id="btn-menu-pause" class="btn btn-secondary">
+            <span>🏠 Menu</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       SCREEN 4: VICTORY MODAL
+       ========================================================= -->
+  <div id="modal-victory" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="victory-title">
+    <div class="modal-box">
+      <div class="modal-emoji-badge" aria-hidden="true">🏆</div>
+      <div id="victory-new-record" class="new-record-pill" style="display: none;">
+        ✨ NEW BEST RECORD! ✨
+      </div>
+      <h2 id="victory-title" class="modal-title">You Won!</h2>
+      <p class="modal-desc">Spectacular memory! You matched all pairs!</p>
+
+      <div class="stars-row" id="victory-stars" aria-label="3 Star Rating">
+        <span class="star-anim">⭐</span>
+        <span class="star-anim">⭐</span>
+        <span class="star-anim">⭐</span>
+      </div>
+
+      <div class="stats-tiles">
+        <div class="stat-tile">
+          <span class="label">Clear Time</span>
+          <span class="value" id="victory-stat-time">00:00</span>
+        </div>
+        <div class="stat-tile">
+          <span class="label">Total Moves</span>
+          <span class="value" id="victory-stat-moves">0</span>
+        </div>
+        <div class="stat-tile">
+          <span class="label">Best Moves</span>
+          <span class="value" id="victory-best-moves">--</span>
+        </div>
+        <div class="stat-tile">
+          <span class="label">Best Time</span>
+          <span class="value" id="victory-best-time">--:--</span>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="btn-play-again" class="btn btn-primary" data-start="true">
+          <span>🎉 Play Again</span>
+        </button>
+        <button type="button" id="btn-menu-victory" class="btn btn-secondary">
+          <span>🏠 Change Difficulty / Menu</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       VANILLA JAVASCRIPT GAME ENGINE
+       ========================================================= -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* ---------------------------------------------------------
+         1. CONSTANTS & DIFFICULTY CONFIGURATION
+         --------------------------------------------------------- */
+      const DIFFICULTIES = {
+        easy: {
+          name: 'easy',
+          label: 'Easy',
+          cardCount: 8,
+          pairCount: 4,
+          cols: 4,
+          cssClass: 'diff-easy'
+        },
+        normal: {
+          name: 'normal',
+          label: 'Normal',
+          cardCount: 16,
+          pairCount: 8,
+          cols: 4,
+          cssClass: 'diff-normal'
+        },
+        hard: {
+          name: 'hard',
+          label: 'Hard',
+          cardCount: 24,
+          pairCount: 12,
+          cols: 6,
+          cssClass: 'diff-hard'
+        }
+      };
+
+      // Adorable, high-contrast, cute emoji pool
+      const CUTE_EMOJIS = [
+        '🐰', '🐱', '🦊', '🐼', '🦄', '🍓', '🥑', '🌸',
+        '🍄', '🍩', '🧁', '🌈', '🐣', '🧋', '🍭', '🍡',
+        '🍉', '🐶', '🍦', '🦋', '🐝', '🍎', '🎈', '🌟'
+      ];
+
+      /* ---------------------------------------------------------
+         2. PROCEDURAL SOUND SYNTHESIZER (WEB AUDIO API)
+         --------------------------------------------------------- */
+      class SoundEffects {
+        constructor() {
+          this.ctx = null;
+          this.isMuted = false;
+          this.loadMutePreference();
+        }
+
+        initContext() {
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+              this.ctx = new AudioCtx();
+            }
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+        }
+
+        loadMutePreference() {
+          try {
+            const saved = localStorage.getItem('memory_match_muted');
+            this.isMuted = saved === 'true';
+          } catch (e) {
+            this.isMuted = false;
+          }
+        }
+
+        toggleMute() {
+          this.isMuted = !this.isMuted;
+          try {
+            localStorage.setItem('memory_match_muted', String(this.isMuted));
+          } catch (e) {}
+          if (!this.isMuted) {
+            this.initContext();
+            this.playClick();
+          }
+          return this.isMuted;
+        }
+
+        playTone(freq, type = 'sine', duration = 0.1, startDelay = 0, gainLevel = 0.15) {
+          if (this.isMuted) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const startTime = this.ctx.currentTime + startDelay;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, startTime);
+
+          gain.gain.setValueAtTime(0.0001, startTime);
+          gain.gain.exponentialRampToValueAtTime(gainLevel, startTime + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(startTime);
+          osc.stop(startTime + duration + 0.02);
+        }
+
+        // Card flip sound (short upward frequency sweep)
+        playFlip() {
+          if (this.isMuted) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(320, now);
+          osc.frequency.exponentialRampToValueAtTime(580, now + 0.08);
+
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(0.14, now + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.09);
+        }
+
+        // Successful match sound (sparkling bright major triad chime)
+        playMatch() {
+          if (this.isMuted) return;
+          const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+          notes.forEach((freq, idx) => {
+            this.playTone(freq, 'triangle', 0.22, idx * 0.07, 0.18);
+          });
+        }
+
+        // Wrong match sound (two gentle descending low boops)
+        playWrong() {
+          if (this.isMuted) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(240, now);
+          osc.frequency.exponentialRampToValueAtTime(170, now + 0.16);
+
+          gain.gain.setValueAtTime(0.14, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.19);
+        }
+
+        // Victory fanfare (joyous melodic arpeggio)
+        playVictory() {
+          if (this.isMuted) return;
+          const melody = [
+            { f: 523.25, d: 0.12, t: 0.00 }, // C5
+            { f: 659.25, d: 0.12, t: 0.12 }, // E5
+            { f: 783.99, d: 0.12, t: 0.24 }, // G5
+            { f: 1046.5, d: 0.35, t: 0.38 }, // C6
+            { f: 880.00, d: 0.12, t: 0.76 }, // A5
+            { f: 1046.5, d: 0.50, t: 0.90 }  // C6 grand
+          ];
+          melody.forEach(item => {
+            this.playTone(item.f, 'sine', item.d, item.t, 0.2);
+            this.playTone(item.f * 1.002, 'triangle', item.d, item.t, 0.12);
+          });
+        }
+
+        // UI button click sound
+        playClick() {
+          if (this.isMuted) return;
+          this.playTone(600, 'sine', 0.04, 0, 0.1);
+        }
+      }
+
+      /* ---------------------------------------------------------
+         3. PARTICLE & CELEBRATION SYSTEM (CANVAS)
+         --------------------------------------------------------- */
+      class ParticleSystem {
+        constructor(canvas) {
+          this.canvas = canvas;
+          this.ctx = canvas.getContext('2d');
+          this.particles = [];
+          this.isRunning = false;
+          this.resize();
+          window.addEventListener('resize', () => this.resize());
+        }
+
+        resize() {
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+        }
+
+        burstAt(x, y, count = 18) {
+          const colors = ['#f472b6', '#c084fc', '#38bdf8', '#34d399', '#fbbf24', '#ffffff'];
+          for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 5.5;
+            this.particles.push({
+              x,
+              y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed - 1.5,
+              radius: 3 + Math.random() * 4,
+              color: colors[Math.floor(Math.random() * colors.length)],
+              alpha: 1,
+              decay: 0.02 + Math.random() * 0.03,
+              gravity: 0.12,
+              shape: Math.random() > 0.4 ? 'circle' : 'star'
+            });
+          }
+          if (!this.isRunning) this.startLoop();
+        }
+
+        startConfettiShower(durationMs = 4000) {
+          const startTime = Date.now();
+          const colors = ['#f472b6', '#c084fc', '#38bdf8', '#34d399', '#fbbf24', '#fbcfe8'];
+
+          const interval = setInterval(() => {
+            if (Date.now() - startTime > durationMs) {
+              clearInterval(interval);
+              return;
+            }
+            // Spawn particles along the top
+            for (let i = 0; i < 4; i++) {
+              this.particles.push({
+                x: Math.random() * this.canvas.width,
+                y: -10,
+                vx: (Math.random() - 0.5) * 3,
+                vy: 2 + Math.random() * 4,
+                radius: 4 + Math.random() * 5,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                alpha: 1,
+                decay: 0.005 + Math.random() * 0.008,
+                gravity: 0.04,
+                shape: Math.random() > 0.5 ? 'circle' : 'star'
+              });
+            }
+            if (!this.isRunning) this.startLoop();
+          }, 60);
+        }
+
+        startLoop() {
+          this.isRunning = true;
+          const loop = () => {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+            for (let i = this.particles.length - 1; i >= 0; i--) {
+              const p = this.particles[i];
+              p.x += p.vx;
+              p.y += p.vy;
+              p.vy += p.gravity;
+              p.alpha -= p.decay;
+
+              if (p.alpha <= 0) {
+                this.particles.splice(i, 1);
+                continue;
+              }
+
+              this.ctx.save();
+              this.ctx.globalAlpha = Math.max(0, p.alpha);
+              this.ctx.fillStyle = p.color;
+
+              if (p.shape === 'circle') {
+                this.ctx.beginPath();
+                this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                this.ctx.fill();
+              } else {
+                // Draw cute 4-point star/sparkle
+                this.ctx.translate(p.x, p.y);
+                this.ctx.beginPath();
+                const r = p.radius * 1.4;
+                this.ctx.moveTo(0, -r);
+                this.ctx.quadraticCurveTo(0, 0, r, 0);
+                this.ctx.quadraticCurveTo(0, 0, 0, r);
+                this.ctx.quadraticCurveTo(0, 0, -r, 0);
+                this.ctx.quadraticCurveTo(0, 0, 0, -r);
+                this.ctx.fill();
+              }
+              this.ctx.restore();
+            }
+
+            if (this.particles.length > 0) {
+              requestAnimationFrame(loop);
+            } else {
+              this.isRunning = false;
+            }
+          };
+          requestAnimationFrame(loop);
+        }
+      }
+
+      /* ---------------------------------------------------------
+         4. CORE GAME STATE & ENGINE
+         --------------------------------------------------------- */
+      class MemoryMatchGame {
+        constructor() {
+          this.sound = new SoundEffects();
+          this.particles = new ParticleSystem(document.getElementById('particle-canvas'));
+
+          this.difficulty = 'normal';
+          this.deck = [];
+          this.flippedCards = []; // active pair being checked [Card, Card]
+          this.isBoardLocked = false;
+          this.matchedPairsCount = 0;
+          this.movesCount = 0;
+          this.timerSeconds = 0;
+          this.timerInterval = null;
+          this.isPaused = false;
+          this.gameState = 'title'; // 'title', 'playing', 'paused', 'victory'
+
+          this.cacheDOM();
+          this.bindEvents();
+          this.updateSoundButtons();
+          this.updateStartBestBanner();
+
+          // Support ?autostart=1 parameter
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get('autostart') === '1') {
+            const diffParam = urlParams.get('difficulty');
+            if (diffParam && DIFFICULTIES[diffParam]) {
+              this.setDifficulty(diffParam);
+            }
+            this.startGame();
+          }
+        }
+
+        cacheDOM() {
+          // Screens
+          this.screenStart = document.getElementById('screen-start');
+          this.screenPlaying = document.getElementById('screen-playing');
+          this.modalPause = document.getElementById('modal-pause');
+          this.modalVictory = document.getElementById('modal-victory');
+
+          // Board & HUD
+          this.board = document.getElementById('game-board');
+          this.hudTimer = document.getElementById('hud-timer');
+          this.hudMoves = document.getElementById('hud-moves');
+          this.hudMatches = document.getElementById('hud-matches');
+
+          // Buttons
+          this.btnStart = document.getElementById('btn-start');
+          this.btnPause = document.getElementById('btn-pause');
+          this.btnResume = document.getElementById('btn-resume');
+          this.btnRestartHud = document.getElementById('btn-restart-hud');
+          this.btnRestartPause = document.getElementById('btn-restart-pause');
+          this.btnMenuPause = document.getElementById('btn-menu-pause');
+          this.btnPlayAgain = document.getElementById('btn-play-again');
+          this.btnMenuVictory = document.getElementById('btn-menu-victory');
+
+          // Audio Toggles
+          this.btnSoundStart = document.getElementById('btn-sound-toggle-start');
+          this.btnSoundHud = document.getElementById('btn-sound-toggle-hud');
+          this.soundIconStart = document.getElementById('sound-icon-start');
+          this.soundTextStart = document.getElementById('sound-text-start');
+          this.soundIconHud = document.getElementById('sound-icon-hud');
+
+          // Difficulty chips
+          this.diffButtons = document.querySelectorAll('.diff-btn');
+
+          // Best score banner on start
+          this.startBestLabel = document.getElementById('start-best-label');
+          this.startBestVal = document.getElementById('start-best-val');
+
+          // Pause modal stats
+          this.pauseStatTime = document.getElementById('pause-stat-time');
+          this.pauseStatMoves = document.getElementById('pause-stat-moves');
+          this.pauseStatPairs = document.getElementById('pause-stat-pairs');
+          this.pauseStatDiff = document.getElementById('pause-stat-diff');
+
+          // Victory modal stats
+          this.victoryStatTime = document.getElementById('victory-stat-time');
+          this.victoryStatMoves = document.getElementById('victory-stat-moves');
+          this.victoryBestMoves = document.getElementById('victory-best-moves');
+          this.victoryBestTime = document.getElementById('victory-best-time');
+          this.victoryNewRecordBadge = document.getElementById('victory-new-record');
+          this.victoryStars = document.getElementById('victory-stars');
+        }
+
+        bindEvents() {
+          // Start Game
+          this.btnStart.addEventListener('click', () => {
+            this.sound.playClick();
+            this.startGame();
+          });
+
+          // Play Again from victory
+          this.btnPlayAgain.addEventListener('click', () => {
+            this.sound.playClick();
+            this.modalVictory.classList.remove('active');
+            this.startGame();
+          });
+
+          // Back to Menu from Victory
+          this.btnMenuVictory.addEventListener('click', () => {
+            this.sound.playClick();
+            this.modalVictory.classList.remove('active');
+            this.showStartScreen();
+          });
+
+          // Pause & Resume
+          this.btnPause.addEventListener('click', () => {
+            this.sound.playClick();
+            this.pauseGame();
+          });
+          this.btnResume.addEventListener('click', () => {
+            this.sound.playClick();
+            this.resumeGame();
+          });
+
+          // Restart
+          this.btnRestartHud.addEventListener('click', () => {
+            this.sound.playClick();
+            this.restartGame();
+          });
+          this.btnRestartPause.addEventListener('click', () => {
+            this.sound.playClick();
+            this.modalPause.classList.remove('active');
+            this.restartGame();
+          });
+
+          // Back to Menu from Pause
+          this.btnMenuPause.addEventListener('click', () => {
+            this.sound.playClick();
+            this.modalPause.classList.remove('active');
+            this.showStartScreen();
+          });
+
+          // Difficulty Selection
+          this.diffButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              this.sound.playClick();
+              const diff = btn.getAttribute('data-diff');
+              this.setDifficulty(diff);
+            });
+          });
+
+          // Sound Toggles
+          this.btnSoundStart.addEventListener('click', () => {
+            this.toggleSound();
+          });
+          this.btnSoundHud.addEventListener('click', () => {
+            this.toggleSound();
+          });
+
+          // Keyboard Shortcuts
+          window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+              if (this.gameState === 'playing') {
+                this.pauseGame();
+              } else if (this.gameState === 'paused') {
+                this.resumeGame();
+              }
+            } else if (e.key === 'r' || e.key === 'R') {
+              if (this.gameState === 'playing' || this.gameState === 'paused') {
+                this.modalPause.classList.remove('active');
+                this.restartGame();
+              }
+            } else if (e.key === 'm' || e.key === 'M') {
+              this.toggleSound();
+            } else if ((e.key === 'Enter' || e.key === ' ') && this.gameState === 'title') {
+              // Avoid re-triggering if focus is on a button
+              if (document.activeElement && document.activeElement.tagName === 'BUTTON') {
+                return;
+              }
+              this.startGame();
+            }
+          });
+        }
+
+        setDifficulty(diff) {
+          if (!DIFFICULTIES[diff]) return;
+          this.difficulty = diff;
+
+          this.diffButtons.forEach(btn => {
+            const isActive = btn.getAttribute('data-diff') === diff;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-checked', String(isActive));
+          });
+
+          this.updateStartBestBanner();
+        }
+
+        toggleSound() {
+          const isMuted = this.sound.toggleMute();
+          this.updateSoundButtons();
+        }
+
+        updateSoundButtons() {
+          const isMuted = this.sound.isMuted;
+          const icon = isMuted ? '🔇' : '🔊';
+          const text = isMuted ? 'Sound: OFF' : 'Sound: ON';
+
+          this.soundIconStart.textContent = icon;
+          this.soundTextStart.textContent = text;
+          this.soundIconHud.textContent = icon;
+        }
+
+        getBestScore(diff = this.difficulty) {
+          try {
+            const raw = localStorage.getItem(`memory_match_best_${diff}`);
+            return raw ? JSON.parse(raw) : null;
+          } catch (e) {
+            return null;
+          }
+        }
+
+        saveBestScore(diff, moves, timeSeconds) {
+          try {
+            const currentBest = this.getBestScore(diff);
+            let isNew = false;
+            if (!currentBest) {
+              isNew = true;
+            } else if (moves < currentBest.moves) {
+              isNew = true;
+            } else if (moves === currentBest.moves && timeSeconds < currentBest.timeSeconds) {
+              isNew = true;
+            }
+
+            if (isNew) {
+              const data = {
+                moves,
+                timeSeconds,
+                date: new Date().toISOString()
+              };
+              localStorage.setItem(`memory_match_best_${diff}`, JSON.stringify(data));
+              return true; // was a new record
+            }
+            return false;
+          } catch (e) {
+            return false;
+          }
+        }
+
+        formatTime(totalSeconds) {
+          const minutes = Math.floor(totalSeconds / 60);
+          const seconds = totalSeconds % 60;
+          return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        updateStartBestBanner() {
+          const config = DIFFICULTIES[this.difficulty];
+          this.startBestLabel.textContent = config.label;
+          const best = this.getBestScore(this.difficulty);
+          if (best) {
+            this.startBestVal.textContent = `${best.moves} moves · ${this.formatTime(best.timeSeconds)}`;
+          } else {
+            this.startBestVal.textContent = 'None yet (Play to set!)';
+          }
+        }
+
+        /* ---------------------------------------------------------
+           5. GAME FLOW & BOARD SETUP
+           --------------------------------------------------------- */
+        showStartScreen() {
+          this.stopTimer();
+          this.gameState = 'title';
+          document.body.dataset.state = 'title';
+
+          this.screenPlaying.classList.remove('active');
+          this.modalPause.classList.remove('active');
+          this.modalVictory.classList.remove('active');
+          this.screenStart.classList.add('active');
+
+          this.updateStartBestBanner();
+        }
+
+        startGame() {
+          this.gameState = 'playing';
+          document.body.dataset.state = 'playing';
+
+          this.screenStart.classList.remove('active');
+          this.modalPause.classList.remove('active');
+          this.modalVictory.classList.remove('active');
+          this.screenPlaying.classList.add('active');
+
+          this.buildBoard();
+        }
+
+        restartGame() {
+          this.buildBoard();
+        }
+
+        buildBoard() {
+          const config = DIFFICULTIES[this.difficulty];
+
+          // Reset trackers
+          this.stopTimer();
+          this.timerSeconds = 0;
+          this.movesCount = 0;
+          this.matchedPairsCount = 0;
+          this.flippedCards = [];
+          this.isBoardLocked = false;
+
+          // Update HUD
+          this.hudTimer.textContent = '00:00';
+          this.hudMoves.textContent = '0 Moves';
+          this.hudMatches.textContent = `0 / ${config.pairCount} Pairs`;
+
+          // Configure board grid class
+          this.board.className = `game-board ${config.cssClass}`;
+          this.board.innerHTML = '';
+
+          // Generate card items (pairs)
+          const chosenEmojis = CUTE_EMOJIS.slice(0, config.pairCount);
+          const rawCards = [];
+
+          chosenEmojis.forEach((emoji, pairIdx) => {
+            rawCards.push({ pairId: pairIdx, emoji });
+            rawCards.push({ pairId: pairIdx, emoji });
+          });
+
+          // Fisher-Yates Shuffle
+          for (let i = rawCards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [rawCards[i], rawCards[j]] = [rawCards[j], rawCards[i]];
+          }
+
+          this.deck = rawCards.map((item, index) => {
+            const cardEl = document.createElement('div');
+            cardEl.className = 'card-item';
+            cardEl.tabIndex = 0;
+            cardEl.setAttribute('role', 'button');
+            cardEl.setAttribute('aria-label', `Card ${index + 1}: Hidden`);
+            cardEl.dataset.index = String(index);
+            cardEl.dataset.pairId = String(item.pairId);
+
+            cardEl.innerHTML = `
+              <div class="card-inner">
+                <div class="card-face card-face-back">
+                  <span class="card-back-icon" aria-hidden="true">🐾</span>
+                </div>
+                <div class="card-face card-face-front">
+                  <span class="card-emoji">${item.emoji}</span>
+                </div>
+              </div>
+            `;
+
+            // Card click & keyboard handler
+            const handleCardActivate = () => {
+              this.handleCardClick(cardEl, item);
+            };
+
+            cardEl.addEventListener('click', handleCardActivate);
+            cardEl.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleCardActivate();
+              }
+            });
+
+            this.board.appendChild(cardEl);
+
+            return {
+              element: cardEl,
+              pairId: item.pairId,
+              emoji: item.emoji,
+              isFlipped: false,
+              isMatched: false
+            };
+          });
+
+          // Start Timer on first turn or right away
+          this.startTimer();
+        }
+
+        startTimer() {
+          this.stopTimer();
+          this.timerInterval = setInterval(() => {
+            this.timerSeconds++;
+            this.hudTimer.textContent = this.formatTime(this.timerSeconds);
+          }, 1000);
+        }
+
+        stopTimer() {
+          if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+          }
+        }
+
+        pauseGame() {
+          if (this.gameState !== 'playing') return;
+          this.isPaused = true;
+          this.gameState = 'paused';
+          document.body.dataset.state = 'paused';
+          this.stopTimer();
+
+          const config = DIFFICULTIES[this.difficulty];
+          this.pauseStatTime.textContent = this.formatTime(this.timerSeconds);
+          this.pauseStatMoves.textContent = String(this.movesCount);
+          this.pauseStatPairs.textContent = `${this.matchedPairsCount}/${config.pairCount}`;
+          this.pauseStatDiff.textContent = config.label;
+
+          this.modalPause.classList.add('active');
+        }
+
+        resumeGame() {
+          if (this.gameState !== 'paused') return;
+          this.isPaused = false;
+          this.gameState = 'playing';
+          document.body.dataset.state = 'playing';
+          this.modalPause.classList.remove('active');
+          this.startTimer();
+        }
+
+        /* ---------------------------------------------------------
+           6. CARD CLICK & MATCHING ENGINE
+           --------------------------------------------------------- */
+        handleCardClick(cardEl, item) {
+          // If board is locked during mismatch check, or card is already flipped/matched, ignore
+          if (this.isBoardLocked) return;
+          if (cardEl.classList.contains('flipped') || cardEl.classList.contains('matched')) return;
+
+          // Sound effect
+          this.sound.playFlip();
+
+          // Flip card open
+          cardEl.classList.add('flipped');
+          cardEl.setAttribute('aria-label', `Card: Revealed ${item.emoji}`);
+
+          this.flippedCards.push({ element: cardEl, item });
+
+          // If this is the second card flipped
+          if (this.flippedCards.length === 2) {
+            this.movesCount++;
+            this.hudMoves.textContent = `${this.movesCount} Move${this.movesCount === 1 ? '' : 's'}`;
+
+            const [cardA, cardB] = this.flippedCards;
+
+            if (cardA.item.pairId === cardB.item.pairId) {
+              // MATCH FOUND!
+              this.handleMatch(cardA, cardB);
+            } else {
+              // MISMATCH!
+              this.handleMismatch(cardA, cardB);
+            }
+          }
+        }
+
+        handleMatch(cardA, cardB) {
+          const config = DIFFICULTIES[this.difficulty];
+          this.matchedPairsCount++;
+          this.hudMatches.textContent = `${this.matchedPairsCount} / ${config.pairCount} Pairs`;
+
+          // Sound effect
+          this.sound.playMatch();
+
+          // Mark both matched
+          cardA.element.classList.add('matched');
+          cardB.element.classList.add('matched');
+          cardA.element.setAttribute('aria-label', `Card: Matched ${cardA.item.emoji}`);
+          cardB.element.setAttribute('aria-label', `Card: Matched ${cardB.item.emoji}`);
+
+          // Spawn burst particles at both cards' centers
+          const rectA = cardA.element.getBoundingClientRect();
+          const rectB = cardB.element.getBoundingClientRect();
+          this.particles.burstAt(rectA.left + rectA.width / 2, rectA.top + rectA.height / 2, 16);
+          this.particles.burstAt(rectB.left + rectB.width / 2, rectB.top + rectB.height / 2, 16);
+
+          // Reset flipped cards buffer
+          this.flippedCards = [];
+
+          // Check if all pairs are found (VICTORY!)
+          if (this.matchedPairsCount === config.pairCount) {
+            setTimeout(() => {
+              this.handleVictory();
+            }, 600);
+          }
+        }
+
+        handleMismatch(cardA, cardB) {
+          // Lock board from further clicks while checking
+          this.isBoardLocked = true;
+
+          // Play wrong sound
+          setTimeout(() => {
+            this.sound.playWrong();
+            cardA.element.classList.add('mismatch');
+            cardB.element.classList.add('mismatch');
+          }, 250);
+
+          // Flip back after short delay (800ms)
+          setTimeout(() => {
+            cardA.element.classList.remove('flipped', 'mismatch');
+            cardB.element.classList.remove('flipped', 'mismatch');
+            cardA.element.setAttribute('aria-label', 'Card: Hidden');
+            cardB.element.setAttribute('aria-label', 'Card: Hidden');
+
+            this.flippedCards = [];
+            this.isBoardLocked = false;
+          }, 850);
+        }
+
+        /* ---------------------------------------------------------
+           7. VICTORY & RESULTS
+           --------------------------------------------------------- */
+        handleVictory() {
+          this.stopTimer();
+          this.gameState = 'victory';
+          document.body.dataset.state = 'gameover';
+
+          // Sound fanfare & confetti
+          this.sound.playVictory();
+          this.particles.startConfettiShower(4500);
+
+          const config = DIFFICULTIES[this.difficulty];
+          const timeFormatted = this.formatTime(this.timerSeconds);
+
+          // Save and check if new best record
+          const isNewRecord = this.saveBestScore(this.difficulty, this.movesCount, this.timerSeconds);
+          const bestScore = this.getBestScore(this.difficulty);
+
+          // Update Victory Modal UI
+          this.victoryStatTime.textContent = timeFormatted;
+          this.victoryStatMoves.textContent = String(this.movesCount);
+          this.victoryBestMoves.textContent = bestScore ? `${bestScore.moves}` : `${this.movesCount}`;
+          this.victoryBestTime.textContent = bestScore ? this.formatTime(bestScore.timeSeconds) : timeFormatted;
+
+          this.victoryNewRecordBadge.style.display = isNewRecord ? 'inline-block' : 'none';
+
+          // Calculate Star Rating
+          let starCount = 3;
+          if (this.movesCount > Math.ceil(config.pairCount * 2.5)) {
+            starCount = 1;
+          } else if (this.movesCount > Math.ceil(config.pairCount * 1.5)) {
+            starCount = 2;
+          }
+
+          let starsHtml = '';
+          for (let i = 0; i < 3; i++) {
+            if (i < starCount) {
+              starsHtml += '<span class="star-anim">⭐</span>';
+            } else {
+              starsHtml += '<span class="star-anim" style="opacity: 0.25; filter: grayscale(1);">⭐</span>';
+            }
+          }
+          this.victoryStars.innerHTML = starsHtml;
+
+          // Show modal
+          this.modalVictory.classList.add('active');
+        }
+      }
+
+      // Initialize on DOM load
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => new MemoryMatchGame());
+      } else {
+        new MemoryMatchGame();
+      }
+    })();
+  </script>
+</body>
+</html>

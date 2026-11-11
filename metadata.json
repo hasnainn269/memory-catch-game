@@ -1,0 +1,6 @@
+{
+  "name": "Memory Match Challenge",
+  "description": "A cute, pastel-themed memory match mini-game with 3D card flips, Web Audio sound effects, customizable difficulty, and score tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
